@@ -1,0 +1,13 @@
+[package]
+authors = ["Kenan Sulayman <kenan@sly.mn>"]
+name = "psydex"
+version = "0.1.0"
+
+[dependencies]
+json = "0.10.2"
+log = "0.3.6"
+serde = "0.8.9"
+serde_json = "0.8.2"
+
+[dependencies.hyper]
+git = "https://github.com/hyperium/hyper.git"
