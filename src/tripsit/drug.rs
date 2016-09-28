@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DrugInteraction {
-	status: Option<String>,
-	note: Option<String>
+	pub status: Option<String>,
+	pub note: Option<String>
 }
 
 #[derive(Debug)]
@@ -29,12 +29,12 @@ impl Drug {
 	}
 
 	#[inline]
-	pub fn add_interaction (&mut self, name: &str, interaction: DrugInteraction) {
-		if self.interactions.contains_key(name) {
-			debug!("Interaction between {:?} and {:?} already known.", self.name, name);
+	pub fn add_interaction (&mut self, other_drug_name: &str, interaction: &DrugInteraction) {
+		if self.interactions.contains_key(other_drug_name) {
+			println!("Interaction between {:?} and {:?} already known.", self.name, other_drug_name);
 			return;
 		}
 
-		self.interactions.insert(name.to_string(), interaction);
+		self.interactions.insert(other_drug_name.to_string(), interaction.clone());
 	}
 }

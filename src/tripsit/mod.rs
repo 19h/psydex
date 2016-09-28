@@ -42,14 +42,10 @@ impl PsyDex {
                     self.drugs.insert(name.to_string(), Drug::new(name));
                 },
                 None => {
-                    println!("Invalid object in structure: {:?}", drug_name);
+                    error!("Invalid object in structure: {:?}", drug_name);
                 }
             }
         }
-    }
-
-    fn ts_process_combos (drug: &json::JsonValue) -> HashMap<String, DrugInteraction> {
-        HashMap::new()
     }
 
     #[inline]
@@ -58,20 +54,38 @@ impl PsyDex {
             unreachable!("Either Tripsit returned invalid data or a contract was breached");
         }
 
-        let mut i = 0;
+        for (drug_name, drug) in &mut self.drugs {
+            let ts_drug_uri = ((&*TS_URL_DRUG_PREFIX).to_string() + drug_name).to_string();
 
-        for (drug_name, _) in &self.drugs {
-            if i == 1 {
-                break;
+            println!("Loading {:?}", ts_drug_uri);
+
+            let res = client::HTTP::new().get(&ts_drug_uri);
+            let mut ts_json_res = json::parse(str::from_utf8(&res).unwrap()).unwrap();
+
+            let ts_drug = ts_json_res["data"][0]["combos"].take();
+
+            for (i, (combo_drug_name, combo_drug)) in ts_drug.entries().enumerate() {
+                println!("{:?}, {:?}, {:?}", i, combo_drug_name, combo_drug);
+
+                let combo_drug = combo_drug.clone();
+
+                let interaction_status = match combo_drug["status"].as_str() {
+                    Some(status) => Some(status.to_string()),
+                    None => None
+                };
+
+                let interaction_note = match combo_drug["note"].as_str() {
+                    Some(note) => Some(note.to_string()),
+                    None => None
+                };
+
+                drug.add_interaction(combo_drug_name, &DrugInteraction {
+                    status: interaction_status,
+                    note: interaction_note
+                });
             }
 
-            let ts_drug_uri = ((&*TS_URL_DRUG_PREFIX).to_string() + drug_name).to_string();
-            let res = client::HTTP::new().get(&ts_drug_uri);
-            let mut drug_obj = json::parse(str::from_utf8(&res).unwrap()).unwrap();
-
-            println!("{:?}", drug_obj);
-
-            i += 1;
+            println!("{:?}", drug);
         }
     }
 }
