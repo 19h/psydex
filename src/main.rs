@@ -12,7 +12,7 @@ extern crate json;
 mod tripsit;
 
 fn main() {
-    let mut tripsit = tripsit::TripsitDex::new().unwrap();
+    let mut tripsit = tripsit::PsyDex::new();
 
-    tripsit.load_drug_names();
+    println!("{:?}", tripsit.drugs);
 }

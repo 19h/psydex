@@ -2,8 +2,7 @@ extern crate log;
 extern crate hyper;
 
 use std::io;
-use std::io::{Take, Read};
-use std::sync::{mpsc, Mutex, Arc};
+use std::sync::mpsc;
 use std::time::Duration;
 
 use hyper::client::{Client, Request, Response, DefaultTransport as HttpStream};
@@ -14,13 +13,6 @@ use hyper::{Decoder, Encoder, Next};
 struct Dump {
     data: Vec<u8>,
     sender: mpsc::Sender<Vec<u8>>
-}
-
-impl Dump {
-    #[inline]
-    pub fn data(&self) -> Vec<u8> {
-        return self.data.clone();
-    }
 }
 
 impl Drop for Dump {
@@ -47,7 +39,7 @@ impl hyper::client::Handler<HttpStream> for Dump {
     }
 
     #[inline]
-    fn on_response(&mut self, res: Response) -> Next {
+    fn on_response(&mut self, _res: Response) -> Next {
         read()
     }
 
@@ -64,7 +56,7 @@ impl hyper::client::Handler<HttpStream> for Dump {
     }
 
     #[inline]
-    fn on_error(&mut self, err: hyper::Error) -> Next {
+    fn on_error(&mut self, _err: hyper::Error) -> Next {
         Next::remove()
     }
 }
@@ -74,7 +66,7 @@ pub struct HTTP;
 impl HTTP {
     #[inline]
     pub fn new() -> HTTP {
-        return HTTP {};
+        HTTP {}
     }
 
     #[inline]
@@ -82,7 +74,7 @@ impl HTTP {
         let (tx, rx) = mpsc::channel();
         let client = Client::new().expect("Failed to create a Client");
 
-        let mut dump = Dump {
+        let dump = Dump {
             data: Vec::new(),
             sender: tx
         };
