@@ -5,6 +5,7 @@ version = "0.1.0"
 
 [dependencies]
 json = "0.10.2"
+lazy_static = "0.2.1"
 log = "0.3.6"
 serde = "0.8.9"
 serde_json = "0.8.2"

@@ -50,40 +50,46 @@ impl hyper::client::Handler<HttpStream> for Dump {
             Ok(_) => read(),
             Err(e) => match e.kind() {
                 io::ErrorKind::WouldBlock => Next::read(),
-                _ => Next::end()
+                _ => {
+                    println!("ERROR {:?}", e);
+
+                    Next::end()
+                }
             }
         }
     }
 
     #[inline]
-    fn on_error(&mut self, _err: hyper::Error) -> Next {
+    fn on_error(&mut self, err: hyper::Error) -> Next {
+        println!("ERROR {:?}", err);
         Next::remove()
     }
 }
 
-pub struct HTTP;
+pub struct HTTP {
+    client: Client<Dump>
+}
 
 impl HTTP {
     #[inline]
     pub fn new() -> HTTP {
-        HTTP {}
+        HTTP {
+            client: Client::new().expect("Failed to create a client")
+        }
     }
 
     #[inline]
-    pub fn get(&mut self, url: &str) -> Vec<u8> {
+    pub fn get(&self, url: &str) -> Vec<u8> {
         let (tx, rx) = mpsc::channel();
-        let client = Client::new().expect("Failed to create a Client");
 
         let dump = Dump {
             data: Vec::new(),
             sender: tx
         };
 
-        client.request(url.parse().unwrap(), dump).unwrap();
+        self.client.request(url.parse().unwrap(), dump).unwrap();
 
         let data = rx.recv().unwrap();
-
-        client.close();
 
         return data;
     }
