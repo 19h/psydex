@@ -21,7 +21,7 @@ fn main() {
     let lmdb_env = lmdb_create_env("./db");
     let lmdb_db = lmdb_open(&lmdb_env);
 
-    let mut memory = memory::Memory::new(&lmdb_env, &lmdb_db);
+    let memory = memory::Memory::new(&lmdb_env, &lmdb_db);
 
     let _psydex = tripsit::PsyDex::new(memory);
 }

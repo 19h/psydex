@@ -68,7 +68,7 @@ impl<'a> PsyDex<'a> {
     fn drug_name_window (drugs: &mut HashMap<String, Drug>) -> u32 {
         let mut window = 0;
 
-        for (drug_name, mut drug) in drugs.iter() {
+        for (drug_name, _) in drugs.iter() {
             let len = drug_name.len();
 
             if len > window {
@@ -158,7 +158,7 @@ impl<'a> PsyDex<'a> {
             unreachable!("Either Tripsit returned invalid data or a contract was breached");
         }
 
-        let mut drug_name_window = Self::drug_name_window(&mut self.drugs);
+        let drug_name_window = Self::drug_name_window(&mut self.drugs);
 
         let mut progress = ProgressBar::new(self.drugs.len() as u64);
 
