@@ -23,5 +23,5 @@ fn main() {
 
     let mut memory = memory::Memory::new(&lmdb_env, &lmdb_db);
 
-    let _psydex = tripsit::PsyDex::new(&memory);
+    let _psydex = tripsit::PsyDex::new(memory);
 }

@@ -22,39 +22,16 @@ static TS_URL_DRUG_PREFIX: &'static str = "http://tripbot.tripsit.me/api/tripsit
 
 static TS_DRUG_CACHE_EXPIRE: u64 = 7200;
 
-#[inline]
-fn client_cond_get (url: &str, memory: &mut memory::Memory, client: &client::HTTP) -> Vec<u8> {
-    /* unixtime */
-    let now = time::now().to_timespec().sec as u64;
-
-    let mut url_ts_id = url.to_string();
-            url_ts_id.push_str(&"_ts");
-
-    let known_url_ts = memory.get_u64(&url_ts_id);
-
-    if known_url_ts.is_some() && (known_url_ts.unwrap() > TS_DRUG_CACHE_EXPIRE) {
-        return memory.get(&url).unwrap();
-    }
-
-    let res = client.get(url);
-
-    let _ = memory.put_u64(&url_ts_id, &now);
-
-    memory.put(&url, &res);
-
-    res
-}
-
 pub struct PsyDex<'a> {
     pub drugs: HashMap<String, Drug>,
 
     client: client::HTTP,
-    memory: &'a memory::Memory<'a>
+    memory: memory::Memory<'a>
 }
 
 impl<'a> PsyDex<'a> {
     #[inline]
-    pub fn new(memory: &'a memory::Memory) -> PsyDex<'a> {
+    pub fn new(memory: memory::Memory<'a>) -> PsyDex<'a> {
         let mut psydex = PsyDex {
             drugs: HashMap::new(),
 
@@ -115,13 +92,39 @@ impl<'a> PsyDex<'a> {
     }
 
     #[inline]
+    fn client_cond_get (url: &str,
+                        memory: &mut memory::Memory,
+                        client: &client::HTTP
+                    ) -> Vec<u8> {
+        /* unixtime */
+        let now = time::now().to_timespec().sec as u64;
+
+        let mut url_ts_id = url.to_string();
+                url_ts_id.push_str(&"_ts");
+
+        let known_url_ts = memory.get_u64(&url_ts_id);
+
+        if known_url_ts.is_some() && (known_url_ts.unwrap() > TS_DRUG_CACHE_EXPIRE) {
+            return memory.get(&url).unwrap();
+        }
+
+        let res = client.get(url);
+
+        let _ = memory.put_u64(&url_ts_id, &now);
+
+        memory.put(&url, &res);
+
+        res
+    }
+
+    #[inline]
     fn load_drug_interaction (drug_name: &str,
                               drug: &mut Drug,
                               memory: &mut memory::Memory,
                               client: &client::HTTP) {
         let ts_drug_uri = ((&*TS_URL_DRUG_PREFIX).to_string() + drug_name).to_string();
 
-        let res = client_cond_get(&ts_drug_uri, memory, client);
+        let res = Self::client_cond_get(&ts_drug_uri, memory, client);
 
         let mut ts_json_res = json::parse(str::from_utf8(&res).unwrap()).unwrap();
 
@@ -166,7 +169,7 @@ impl<'a> PsyDex<'a> {
 
             progress.message(&Self::drug_name_pad(t_dn, drug_name_window));
 
-            self::PsyDex::load_drug_interaction(&drug_name, &mut drug, &mut self.memory, &self.client);
+            self::PsyDex::load_drug_interaction(&drug_name, &mut drug, &mut self.memory, &mut self.client);
 
             progress.inc();
         }
