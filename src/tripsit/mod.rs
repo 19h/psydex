@@ -11,11 +11,13 @@ use time;
 
 use std::str;
 use std::collections::HashMap;
-
+use std::io::Read;
 pub mod client;
 
 pub mod drug;
 use self::drug::{DrugInteraction, Drug};
+
+use revmap;
 
 static TS_URL_ALLDRUGS: &'static str = "http://tripbot.tripsit.me/api/tripsit/getAllDrugNames";
 static TS_URL_DRUG_PREFIX: &'static str = "http://tripbot.tripsit.me/api/tripsit/getDrug?name=";
@@ -24,6 +26,7 @@ static TS_DRUG_CACHE_EXPIRE: u64 = 7200;
 
 pub struct PsyDex<'a> {
     pub drugs: HashMap<String, Drug>,
+    pub categories: revmap::RevMap,
 
     client: client::HTTP,
     memory: memory::Memory<'a>
@@ -34,13 +37,14 @@ impl<'a> PsyDex<'a> {
     pub fn new(memory: memory::Memory<'a>) -> PsyDex<'a> {
         let mut psydex = PsyDex {
             drugs: HashMap::new(),
+            categories: revmap::RevMap::new(),
 
             client: client::HTTP::new(),
             memory: memory
         };
 
         psydex.load_drug_names();
-        psydex.load_drug_interactions();
+        psydex.load_drugs();
 
         return psydex;
     }
@@ -104,8 +108,10 @@ impl<'a> PsyDex<'a> {
 
         let known_url_ts = memory.get_u64(&url_ts_id);
 
-        if known_url_ts.is_some() && (known_url_ts.unwrap() > TS_DRUG_CACHE_EXPIRE) {
-            return memory.get(&url).unwrap();
+        if known_url_ts.is_some() {
+            if (now - known_url_ts.unwrap()) < TS_DRUG_CACHE_EXPIRE {
+                return memory.get(&url).unwrap();
+            }
         }
 
         let res = client.get(url);
@@ -118,42 +124,75 @@ impl<'a> PsyDex<'a> {
     }
 
     #[inline]
-    fn load_drug_interaction (drug_name: &str,
-                              drug: &mut Drug,
-                              memory: &mut memory::Memory,
-                              client: &client::HTTP) {
+    fn load_drug (drug_name: &str,
+                  drug: &mut Drug,
+                  memory: &mut memory::Memory,
+                  client: &client::HTTP) -> Vec<u8> {
         let ts_drug_uri = ((&*TS_URL_DRUG_PREFIX).to_string() + drug_name).to_string();
 
-        let res = Self::client_cond_get(&ts_drug_uri, memory, client);
+        Self::client_cond_get(&ts_drug_uri, memory, client)
+    }
 
-        let mut ts_json_res = json::parse(str::from_utf8(&res).unwrap()).unwrap();
+    fn process_drug(drug_data: &[u8],
+                    drug_name: &str,
+                    drug: &mut Drug,
+                    categories: &mut revmap::RevMap) {
+        let ts_json_res = json::parse(str::from_utf8(&drug_data).unwrap()).unwrap();
 
-        let ts_drug = ts_json_res["data"][0]["combos"].take();
+        /* interactions */
 
-        for (i, (combo_drug_name, combo_drug)) in ts_drug.entries().enumerate() {
-            println!("{:?}, {:?}, {:?}", i, combo_drug_name, combo_drug);
+        {
+            let ref ts_drug_combos = ts_json_res["data"][0]["combos"];
 
-            let combo_drug = combo_drug.clone();
+            for (_, (combo_drug_name, combo_drug)) in ts_drug_combos.entries().enumerate() {
+                let combo_drug = combo_drug.clone();
 
-            let interaction_status = match combo_drug["status"].as_str() {
-                Some(status) => Some(status.to_string()),
-                None => None
-            };
+                let interaction_status = match combo_drug["status"].as_str() {
+                    Some(status) => Some(status.to_string()),
+                    None => None
+                };
 
-            let interaction_note = match combo_drug["note"].as_str() {
-                Some(note) => Some(note.to_string()),
-                None => None
-            };
+                let interaction_note = match combo_drug["note"].as_str() {
+                    Some(note) => Some(note.to_string()),
+                    None => None
+                };
 
-            drug.add_interaction(combo_drug_name, &DrugInteraction {
-                status: interaction_status,
-                note: interaction_note
-            });
+                drug.add_interaction(combo_drug_name, &DrugInteraction {
+                    status: interaction_status,
+                    note: interaction_note
+                });
+            }
+        }
+
+        /* categories */
+
+        {
+            let ref ts_drug_categories = ts_json_res["data"][0]["categories"];
+            let mut drug_categories: Vec<String> = Vec::new();
+
+            for (_, category) in ts_drug_categories.members().enumerate() {
+                let category = category.to_string();
+
+                drug.add_category(&category);
+                drug_categories.push(category);
+            }
+
+            categories.add(&drug_name, &drug_categories);
+        }
+
+        /* aliases */
+
+        {
+            let ref ts_drug_aliases = ts_json_res["data"][0]["aliases"];
+
+            for (_, category) in ts_drug_aliases.members().enumerate() {
+                drug.add_alias(&category.to_string());
+            }
         }
     }
 
     #[inline]
-    fn load_drug_interactions (&mut self) {
+    fn load_drugs (&mut self) {
         if self.drugs.len() == 0 {
             unreachable!("Either Tripsit returned invalid data or a contract was breached");
         }
@@ -169,7 +208,21 @@ impl<'a> PsyDex<'a> {
 
             progress.message(&Self::drug_name_pad(t_dn, drug_name_window));
 
-            self::PsyDex::load_drug_interaction(&drug_name, &mut drug, &mut self.memory, &mut self.client);
+            let drug_data = {
+                Self::load_drug(
+                    &drug_name,
+                    &mut drug,
+                    &mut self.memory,
+                    &mut self.client
+                )
+            };
+
+            Self::process_drug(
+                &drug_data,
+                &drug_name,
+                &mut drug,
+                &mut self.categories
+            );
 
             progress.inc();
         }

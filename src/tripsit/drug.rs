@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone)]
 pub struct DrugInteraction {
@@ -10,13 +10,9 @@ pub struct DrugInteraction {
 pub struct Drug {
 	name: String,
 
-	/*
-		<drug>
-			-> <interaction>
-				-> status: <foo>[& <bar>]
-				[-> note]
-	*/
-	interactions: HashMap<String, DrugInteraction>
+	aliases: HashSet<String>,
+	interactions: HashMap<String, DrugInteraction>,
+	categories: HashSet<String>
 }
 
 impl Drug {
@@ -24,6 +20,10 @@ impl Drug {
 	pub fn new (name: &str) -> Drug {
 		Drug {
 			name: name.to_string(),
+
+			aliases: HashSet::new(),
+			categories: HashSet::new(),
+
 			interactions: HashMap::new()
 		}
 	}
@@ -36,5 +36,13 @@ impl Drug {
 		}
 
 		self.interactions.insert(other_drug_name.to_string(), interaction.clone());
+	}
+
+	pub fn add_category (&mut self, category: &str) {
+		self.categories.insert(category.to_string());
+	}
+
+	pub fn add_alias (&mut self, alias: &str) {
+		self.aliases.insert(alias.to_string());
 	}
 }

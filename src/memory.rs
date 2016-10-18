@@ -2,6 +2,7 @@ extern crate lmdb_zero as lmdb;
 extern crate tempdir;
 
 use lmdb_zero::traits::AsLmdbBytes;
+use lmdb_zero::Unaligned;
 
 #[allow(dead_code)]
 #[inline]
@@ -9,6 +10,7 @@ pub fn lmdb_create_env(path: &str) -> lmdb::Environment {
     unsafe {
         let mut builder = lmdb::EnvBuilder::new().unwrap();
         builder.set_maxdbs(2).unwrap();
+        builder.set_mapsize(100 * 1024 * 1024).unwrap();
         builder.open(
             path,
             lmdb::open::Flags::empty(),
@@ -127,19 +129,12 @@ impl<'a> Memory<'a> {
         {
             let access = tx.access();
 
-            let res: Result<&u64, _> = access.get(&self.lmdb_db, key);
+            let res: Result<&Unaligned<u64>, _> = access.get(&self.lmdb_db, key);
 
             match res {
-                Ok(data) => Some(data.to_owned()),
+                Ok(data) => Some(data.get().to_owned()),
                 _ => None
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
     }
 }

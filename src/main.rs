@@ -11,9 +11,11 @@ extern crate time;
 #[macro_use] extern crate json;
 
 extern crate lmdb_zero;
+extern crate leveldb;
 
 pub mod memory;
 pub mod tripsit;
+pub mod revmap;
 
 use memory::*;
 
@@ -23,5 +25,11 @@ fn main() {
 
     let memory = memory::Memory::new(&lmdb_env, &lmdb_db);
 
-    let _psydex = tripsit::PsyDex::new(memory);
+    let psydex = tripsit::PsyDex::new(memory);
+
+    for (key, _) in &psydex.categories.tags {
+    	println!("{:?}", key);
+    }
+
+    println!("{:?}", psydex.categories.get_tag_entries("psychedelic"));
 }
